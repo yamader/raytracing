@@ -1,6 +1,7 @@
 import std;
 @safe:
 
+alias Point3 = Vec3;
 alias Color = Vec3;
 
 struct Vec3 {
@@ -21,6 +22,7 @@ struct Vec3 {
   auto ref _z() => e[2];
 
   real len() const => x*x + y*y + z*z;
+  Vec3 unit() const => this / len;
   real dot(const Vec3 v) const => x*v.x + y*v.y + z*v.z;
   Vec3 cross(const Vec3 v) const => Vec3(y*v.z - z*v.y,
                                          z*v.x - x*v.z,
@@ -56,6 +58,23 @@ struct Vec3 {
   string toString() const => e[].map!(to!string).join(" ");
 }
 
+class Ray {
+private:
+  Point3 orig;
+  Vec3 dir;
+
+public:
+  this(const Point3 origin, const Vec3 direction) {
+    orig = origin;
+    dir = direction;
+  }
+
+  Point3 origin() const => orig;
+  Vec3 direction() const => dir;
+
+  Point3 at(real t) const => orig + t*dir;
+}
+
 void writeColor(ref File f, Color c) {
   f.writeln(
     cast(int)(255.999 * c.x), " ",
@@ -63,22 +82,58 @@ void writeColor(ref File f, Color c) {
     cast(int)(255.999 * c.z));
 }
 
+real hitShape(const Ray r, const Point3 center, real rad) {
+  Vec3 oc = r.origin - center;
+  auto a = r.direction.len;
+  auto b_half = oc.dot(r.direction);
+  auto c = oc.len - rad*rad;
+  auto discriminant = b_half*b_half - a*c; // 英: 判別式
+  if(discriminant < 0) {
+    return -1.;
+  } else {
+    return (-b_half - discriminant.sqrt) / a;
+  }
+}
+
+Color rayColor(const Ray r) {
+  auto t = r.hitShape(Point3(0, 0, -1), 0.5);
+  if(t > 0.) {
+    Vec3 N = (r.at(t) - Vec3(0, 0, -1)).unit;
+    return 0.5 * Color(N.x+1., N.y+1., N.z+1.);
+  }
+  t = 0.5*(r.dir.unit.y+1.);
+  return (1-t)*Color(1, 1, 1) + t*Color(0.5, 0.7, 1);
+}
+
 void main() {
-  enum width = 256;
-  enum height = 256;
+  enum aspect_ratio = 16 / 9.;
+  enum width = 400;
+  enum height = cast(int)(width / aspect_ratio);
 
   auto fout = File("image.ppm", "w");
-
   fout.write("P3\n", width, " ", height, "\n255\n");
 
+  auto vph = 2.;
+  auto vpw = aspect_ratio * vph;
+  auto focal = 1.;
+
+  auto orig = Point3(0, 0, 0);
+  auto horiz = Vec3(vpw, 0, 0);
+  auto vert = Vec3(0, vph, 0);
+  auto lowerLeftCorner = orig
+    - horiz / 2 // x
+    - vert / 2  // y
+    - Vec3(0, 0, focal); // focal
+
   foreach_reverse(j; 0 .. height) {
-    write("scanlines remaining: ", j, " ...");
+    write(j, "...");
     foreach(i; 0 .. width) {
-      auto c = Color(i / real(width-1),
-                     j / real(height-1),
-                     real(.25));
+      auto u = i / (width-1.);
+      auto v = j / (height-1.);
+      auto r = new Ray(orig, lowerLeftCorner + u*horiz + v*vert - orig);
+      auto c = r.rayColor;
       fout.writeColor(c);
     }
-    writeln("ok");
   }
+  writeln("ok");
 }
