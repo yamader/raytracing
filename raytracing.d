@@ -21,7 +21,8 @@ struct Vec3 {
   auto ref _y() => e[1];
   auto ref _z() => e[2];
 
-  real len() const => x*x + y*y + z*z;
+  real lenSquared() const => x*x + y*y + z*z;
+  real len() const => lenSquared.sqrt;
   Vec3 unit() const => this / len;
   real dot(const Vec3 v) const => x*v.x + y*v.y + z*v.z;
   Vec3 cross(const Vec3 v) const => Vec3(y*v.z - z*v.y,
@@ -60,19 +61,19 @@ struct Vec3 {
 
 class Ray {
 private:
-  Point3 orig;
-  Vec3 dir;
+  Point3 _orig;
+  Vec3 _dir;
 
 public:
   this(const Point3 origin, const Vec3 direction) {
-    orig = origin;
-    dir = direction;
+    _orig = origin;
+    _dir = direction;
   }
 
-  Point3 origin() const => orig;
-  Vec3 direction() const => dir;
+  Point3 orig() const => _orig;
+  Vec3 dir() const => _dir;
 
-  Point3 at(real t) const => orig + t*dir;
+  Point3 at(real t) const => _orig + t*_dir;
 }
 
 void writeColor(ref File f, Color c) {
@@ -83,23 +84,25 @@ void writeColor(ref File f, Color c) {
 }
 
 real hitShape(const Ray r, const Point3 center, real rad) {
-  Vec3 oc = r.origin - center;
-  auto a = r.direction.len;
-  auto b_half = oc.dot(r.direction);
-  auto c = oc.len - rad*rad;
+  // (-b - sqrt(b*b - 4*a*c)) / (2*a)
+  // ==
+  // (-b/2 - sqrt((b/2)*(b/2) - a*c)) / a
+  Vec3 oc = r.orig - center;
+  auto a = r.dir.lenSquared;
+  auto b_half = oc.dot(r.dir);
+  auto c = oc.lenSquared - rad*rad;
   auto discriminant = b_half*b_half - a*c; // 英: 判別式
-  if(discriminant < 0) {
-    return -1.;
-  } else {
+  if(discriminant < 0)
+    return -1;
+  else
     return (-b_half - discriminant.sqrt) / a;
-  }
 }
 
 Color rayColor(const Ray r) {
   auto t = r.hitShape(Point3(0, 0, -1), 0.5);
   if(t > 0.) {
     Vec3 N = (r.at(t) - Vec3(0, 0, -1)).unit;
-    return 0.5 * Color(N.x+1., N.y+1., N.z+1.);
+    return 0.5*Color(N.x+1, N.y+1, N.z+1);
   }
   t = 0.5*(r.dir.unit.y+1.);
   return (1-t)*Color(1, 1, 1) + t*Color(0.5, 0.7, 1);
