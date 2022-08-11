@@ -25,10 +25,6 @@ struct Vec3 {
   real lenSquared() const => x*x + y*y + z*z;
   real len() const => lenSquared.sqrt;
   Vec3 unit() const => this / len;
-  real dot(const Vec3 v) const => x*v.x + y*v.y + z*v.z;
-  Vec3 cross(const Vec3 v) const => Vec3(y*v.z - z*v.y,
-                                         z*v.x - x*v.z,
-                                         x*v.y - y*v.x);
 
   Vec3 opUnary(string op)() const => Vec3(e[].map!(op ~ `a`).array);
   Vec3 opBinary(string op, T)(const T rhs) const {
@@ -39,23 +35,28 @@ struct Vec3 {
     typeof(e) v = mixin(`lhs`~op~`e[]`);
     return Vec3(v);
   }
-  Vec3 opOpAssign(string op, T)(const T rhs) {
+  ref Vec3 opOpAssign(string op, T)(const T rhs) {
     e = mixin(`e[]`~op~`rhs`);
     return this;
   }
-  Vec3 opBinary(string op)(const Vec3 rhs) const
+  Vec3 opBinary(string op, T: Vec3)(auto ref T rhs) const
       if(op == "+" || op == "-") {
     typeof(e) v = mixin(`e[]`~op~`rhs.e[]`);
     return Vec3(v);
   }
-  Vec3 opAssign(const Vec3 rhs) {
+  ref Vec3 opAssign(T: Vec3)(auto ref T rhs) {
     e = rhs.e;
     return this;
   }
-  Vec3 opOpAssign(string op)(const Vec3 rhs) {
+  ref Vec3 opOpAssign(string op, T: Vec3)(auto ref T rhs) {
     e = mixin(`e[]`~op~`rhs.e[]`);
     return this;
   }
 
   string toString() const => e[].map!(to!string).join(" ");
 }
+
+real dot(T: Vec3)(auto ref T a, auto ref T b) => a.x*b.x + a.y*b.y + a.z*b.z;
+Vec3 cross(T: Vec3)(auto ref T a, auto ref T b) => Vec3(a.y*b.z - a.z*b.y,
+                                                        a.z*b.x - a.x*b.z,
+                                                        a.x*b.y - a.y*b.x);
